@@ -1,0 +1,13 @@
+2025-05-05 23:37:32,228 - Starting to scrape 5 German laws
+2025-05-05 23:37:32,228 - Created folder: data/raw/
+2025-05-05 23:37:32,228 - Scraping: https://www.gesetze-im-internet.de/aufenthg_2004/
+2025-05-05 23:37:32,416 - Saved: data/raw/aufenthg_2004.txt
+2025-05-05 23:37:33,421 - Scraping: https://www.gesetze-im-internet.de/gg/
+2025-05-05 23:37:33,631 - Saved: data/raw/gg.txt
+2025-05-05 23:37:34,637 - Scraping: https://www.gesetze-im-internet.de/bgb/
+2025-05-05 23:37:35,030 - Saved: data/raw/bgb.txt
+2025-05-05 23:37:36,035 - Scraping: https://www.gesetze-im-internet.de/sgb_4/
+2025-05-05 23:37:36,213 - Saved: data/raw/sgb_4.txt
+2025-05-05 23:37:37,218 - Scraping: https://www.gesetze-im-internet.de/stgb/
+2025-05-05 23:37:37,579 - Saved: data/raw/stgb.txt
+2025-05-05 23:37:38,585 - Finished scraping
