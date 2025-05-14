@@ -1,5 +1,5 @@
 def main():
-    print("Hello from german-legal-chatpp!")
+    print("Hello from medical-legal-chatpp!")
 
 
 
