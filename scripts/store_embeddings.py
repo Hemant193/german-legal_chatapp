@@ -1,68 +1,55 @@
 import os
-import psycopg2
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
-
+import glob
+import uuid
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain.text_splitter import CharacterTextSplitter
+from qdrant_client import QdrantClient
+from qdrant_client.http.models import Distance, VectorParams, PointStruct
 
 load_dotenv()
 
-# Load from .env
-DB_CONFIG = {
-    "dbname": os.getenv("DB_NAME"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-    "host": os.getenv("DB_HOST"),
-    "port": os.getenv("DB_PORT")
-}
+# Initialize embedding model
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-PROCESSED_FOLDER = "data/processed"
+# Initialize Qdrant client
+qdrant = QdrantClient(url="http://localhost:6333")
+collection_name = "legal_texts"
 
-model = SentenceTransformer("all-MiniLM-L6-v2")
+# Create Qdrant collection
+qdrant.recreate_collection(
+    collection_name=collection_name,
+    vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+)
 
-def create_table():
-    conn = psycopg2.connect(**DB_CONFIG)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS legal_texts (
-            id SERIAL PRIMARY KEY,
-            text TEXT NOT NULL,
-            embedding VECTOR(384)
-        );
-    """)
-    conn.commit()
-    cursor.close()
-    conn.close()
-    print("Created legal_texts table (if it didn't exist).")
+# Initialize text splitter
+text_splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
 
-def store_chunk(text, embedding):
-    conn = psycopg2.connect(**DB_CONFIG)
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO legal_texts (text, embedding) VALUES (%s, %s)",
-        (text, embedding.tolist())  # Convert embedding to list for Pgvector
+# Read processed texts
+processed_dir = "data/processed"
+texts = []
+for file_path in glob.glob(os.path.join(processed_dir, "*.txt")):
+    with open(file_path, "r", encoding="utf-8") as file:
+        texts.append(file.read())
+
+# Split texts into chunks
+chunks = []
+for text in texts:
+    chunks.extend(text_splitter.split_text(text))
+
+# Generate embeddings and store in Qdrant
+points = []
+for chunk in chunks:
+    embedding = embeddings.embed_query(chunk)
+    points.append(
+        PointStruct(
+            id=str(uuid.uuid4()),
+            vector=embedding,
+            payload={"text": chunk}
+        )
     )
-    conn.commit()
-    cursor.close()
-    conn.close()
 
-def main():
-    """Read all text chunks, generate embeddings, and store them."""
-    print("Starting embedding generation...")
-    
-    create_table()
-    
-    for filename in os.listdir(PROCESSED_FOLDER):
-        if filename.endswith(".txt"):
-            file_path = os.path.join(PROCESSED_FOLDER, filename)
-            with open(file_path, "r", encoding="utf-8") as file:
-                text = file.read()
-            
-            embedding = model.encode(text)
-            
-            store_chunk(text, embedding)
-            print(f"Stored embedding for {filename}")
-    
-    print("Finished storing all embeddings.")
+# Upsert points to Qdrant
+qdrant.upsert(collection_name=collection_name, points=points)
 
-if __name__ == "__main__":
-    main()
+print(f"Stored {len(points)} text chunks in Qdrant collection '{collection_name}'.")
